@@ -1,46 +1,79 @@
-const Telegraf = require('telegraf').Telegraf;
+const { Telegraf, WizardScene, Scenes, Stage, session } = require('telegraf');
 const bot = new Telegraf('1879933872:AAFq_UDOoFlQo7JwfwLyFPpPRoUMhsFc7J4');
-const https = require('https');
+const jsforce = require('jsforce');
+const conn = new jsforce.Connection();
 
-const data = JSON.stringify({
-    Amount__c: 100
-  })
-
-const options = {
-    hostname: 'https://expensesapp2-dev-ed.lightning.force.com/services/data/v52.0/sobjects/Expense_Card__c',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': data.length
+conn.login('expensesapp@gmail.com', '12345678a', function(err, res) {
+    if (err) {
+        return console.error(err);
     }
-  }
+});
+
+const first = new Scenes.BaseScene('first');
+
+first.enter(async ctx => {});
 
 bot.command('start', msg => {
-    console.log(msg.from);
-    let url = 'https://expensesapp2-dev-ed.lightning.force.com/services/data/v52.0/sobjects/Expense_Card__c/'
-    const req = https.request(options, res => {
-        console.log(`statusCode: ${res.statusCode}`)
-        
-        res.on('data', d => {
-            process.stdout.write(d)
+    let userdata = {};
+
+    const login = new WizardScene(
+        'login',
+        ctx => {
+            ctx.reply('Input username:');
+            ctx.wizard.state.data = {};
+            return ctx.wizard.next();
+        },
+        ctx => {
+            ctx.reply('Input pass:');
+            userdata.username = ctx.message.text;
+            return ctx.wizard.next();
+        },
+        ctx => {
+            userdata.password = ctx.message.text;
+            return ctx.wizard.next();
+        },
+        ctx => {
+            ctx.reply('Финальный этап: создание матча.');
+            return ctx.scene.leave();
+        }
+    )
+
+// Регистрируем сцену создания матча
+    const stage = new Stage([login], { default: 'super-wizard' });
+
+    const bot = new Telegraf(process.env.BOT_TOKEN);
+    bot.command('start', ctx => {
+        ctx.scene.enter('login');
+    });
+    bot.use(session());
+    bot.use(stage.middleware());
+
+    /*bot.telegram.sendMessage(msg.chat.id, 'Input username:', {})
+    .then(r => {
+        bot.on('text', ctx => {
+            userdata.username = ctx.message.text;
+            console.log(userdata)
+
+            ctx.wizard.next()
         })
     })
 
-    req.on('error', error => {
-    console.error(error)
-    })
+    if(userdata.username){
+        conn.query('SELECT Id FROM Contact WHERE Email = ' + userdata.username, function(err, res) {
+            console.log(userdata)
+            if (err) { return console.error(err); }
+            console.log(res);
+        });
+    }*/
 
-    req.write(data)
-    req.end()
-
-    bot.telegram.sendMessage(msg.chat.id, 'hello there! Welcome to my new telegram bot.' + msg.from.first_name, {
-    })
 })
 
-
-
-
-
-
 bot.launch();
+
+
+
+
+
+
+
 //  1879933872:AAFq_UDOoFlQo7JwfwLyFPpPRoUMhsFc7J4
