@@ -1,4 +1,4 @@
-const { Telegraf, WizardScene, Scenes, Stage, session } = require('telegraf');
+const { Telegraf, session, Scenes: { BaseScene, Stage }, Markup  } = require('telegraf');
 const bot = new Telegraf('1879933872:AAFq_UDOoFlQo7JwfwLyFPpPRoUMhsFc7J4');
 const jsforce = require('jsforce');
 const conn = new jsforce.Connection();
@@ -9,64 +9,52 @@ conn.login('expensesapp@gmail.com', '12345678a', function(err, res) {
     }
 });
 
-const first = new Scenes.BaseScene('first');
+let userdata = {};
 
-first.enter(async ctx => {});
-
-bot.command('start', msg => {
-    let userdata = {};
-
-    const login = new WizardScene(
-        'login',
-        ctx => {
-            ctx.reply('Input username:');
-            ctx.wizard.state.data = {};
-            return ctx.wizard.next();
-        },
-        ctx => {
-            ctx.reply('Input pass:');
-            userdata.username = ctx.message.text;
-            return ctx.wizard.next();
-        },
-        ctx => {
-            userdata.password = ctx.message.text;
-            return ctx.wizard.next();
-        },
-        ctx => {
-            ctx.reply('Финальный этап: создание матча.');
-            return ctx.scene.leave();
-        }
-    )
-
-// Регистрируем сцену создания матча
-    const stage = new Stage([login], { default: 'super-wizard' });
-
-    const bot = new Telegraf(process.env.BOT_TOKEN);
-    bot.command('start', ctx => {
-        ctx.scene.enter('login');
-    });
-    bot.use(session());
-    bot.use(stage.middleware());
-
-    /*bot.telegram.sendMessage(msg.chat.id, 'Input username:', {})
-    .then(r => {
-        bot.on('text', ctx => {
-            userdata.username = ctx.message.text;
-            console.log(userdata)
-
-            ctx.wizard.next()
-        })
-    })
-
-    if(userdata.username){
-        conn.query('SELECT Id FROM Contact WHERE Email = ' + userdata.username, function(err, res) {
-            console.log(userdata)
-            if (err) { return console.error(err); }
-            console.log(res);
-        });
-    }*/
-
+const usernameScene = new BaseScene('usernameScene');
+usernameScene.enter(ctx => ctx.reply('Input username:'));
+usernameScene.on('text', ctx => {
+    return ctx.scene.enter('passwordScene', { username: ctx.message.text })
 })
+usernameScene.leave();
+
+const passwordScene = new BaseScene('passwordScene');
+passwordScene.enter(ctx => ctx.reply('Input password:'))
+passwordScene.on('text', ctx => {
+    userdata.username = ctx.scene.state.username;
+    userdata.password = ctx.message.text;
+
+    ctx.reply('User data was set');
+
+    return ctx.scene.leave();
+})
+passwordScene.leave();
+
+const stage = new Stage([ usernameScene, passwordScene ]);
+
+bot.use(session());
+bot.use(stage.middleware());
+bot.command('start', ctx => ctx.scene.enter('usernameScene'));
+bot.command('info', ctx => ctx.reply(userdata.username + ' ' + userdata.password))
+
+/*bot.telegram.sendMessage(msg.chat.id, 'Input username:', {})
+.then(r => {
+    bot.on('text', ctx => {
+        userdata.username = ctx.message.text;
+        console.log(userdata)
+
+        ctx.wizard.next()
+    })
+})
+
+if(userdata.username){
+    conn.query('SELECT Id FROM Contact WHERE Email = ' + userdata.username, function(err, res) {
+        console.log(userdata)
+        if (err) { return console.error(err); }
+        console.log(res);
+    });
+}*/
+
 
 bot.launch();
 
