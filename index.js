@@ -126,6 +126,8 @@ stage.hears('Create Card', ctx => ctx.scene.enter('createCard_DateScene'));
 stage.hears('Today', ctx => { 
     let date = moment(new Date).format('DD/MM/YYYY');
 
+    newCard.CardDate__c = date;
+
     return ctx.scene.enter('createCard_AmountScene', removeKeyboard);
 });
 stage.hears('Calendar', ctx => {
@@ -195,6 +197,7 @@ bot.command('info', ctx => ctx.reply(userdata.username + ' ' + userdata.password
 
 bot.launch({
     webhook: {
-        domain: 'https://salesforce-expenses-bot.herokuapp.com/'    
+        domain: 'https://salesforce-expenses-bot.herokuapp.com/',
+        port: process.env.PORT  
     }
 });
