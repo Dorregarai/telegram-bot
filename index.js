@@ -187,18 +187,14 @@ bot.command('start', ctx => {
     contact = { Balance__c: 0 };
     userdata = {};
     monExp = {};
-    return ctx.scene.enter('usernameScene');
+    return ctx.scene.enter('usernameScene', removeKeyboard);
 });
 bot.command('info', ctx => ctx.reply(userdata.username + ' ' + userdata.password))
 
 
 
-bot.launch();
-
-
-
-
-
-
-
-//  1879933872:AAFq_UDOoFlQo7JwfwLyFPpPRoUMhsFc7J4
+bot.launch({
+    webhook: {
+        domain: 'https://salesforce-expenses-bot.herokuapp.com/'    
+    }
+});
