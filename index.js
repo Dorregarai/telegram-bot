@@ -182,7 +182,13 @@ stage.hears('Cancel', ctx => {
 
 bot.use(session());
 bot.use(stage.middleware());
-bot.command('start', ctx => ctx.scene.enter('usernameScene'));
+bot.command('start', ctx => {
+    newCard = {};
+    contact = { Balance__c: 0 };
+    userdata = {};
+    monExp = {};
+    return ctx.scene.enter('usernameScene');
+});
 bot.command('info', ctx => ctx.reply(userdata.username + ' ' + userdata.password))
 
 
