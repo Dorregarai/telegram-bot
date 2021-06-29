@@ -11,7 +11,7 @@ let contact = { Balance__c: 0 };
 let newCard = {};
 let monExp = {};
 
-conn.login('expensesapp@gmail.com', '12345678a', function(err, res) {
+conn.login(process.env.SF_LOGIN, process.env.SF_PASS, function(err, res) {
     if(err) return console.error(err);
 });
 
