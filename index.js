@@ -74,7 +74,7 @@ createCard_DateScene.leave();
 const createCard_AmountScene = new BaseScene('createCard_AmountScene');
 createCard_AmountScene.enter(ctx => ctx.reply('What amount of card?'));
 createCard_AmountScene.on('text', ctx => {
-    if(Number.isInteger(ctx.message.text)) {
+    if(Number.isInteger(+ctx.message.text)) {
         newCard.Amount__c = ctx.message.text;
     } else {
         ctx.reply('Input valid number!').then(() => ctx.scene.enter('createCard_AmountScene'));
@@ -118,9 +118,11 @@ const stage = new Stage([
 
 stage.hears('Current Balance', ctx => {
     contact.Balance__c = 0;
-    if(isLogged) {
+    if(isLogged()) {
         conn.query(
-            'SELECT Balance__c FROM Monthly_Expense__c WHERE Keeper__c = \'' + contact.Id + '\'', 
+            'SELECT Balance__c FROM Monthly_Expense__c WHERE Keeper__c = \'' + 
+            contact.Id + 
+            '\'', 
             function(err, res) {
                 if(err) return console.error(err);
 
@@ -136,25 +138,25 @@ stage.hears('Current Balance', ctx => {
     }
 });
 stage.hears('Create Card', ctx => {
-    if(isLogged) {
+    if(isLogged()) {
         return ctx.scene.enter('createCard_DateScene')
     } else {
         ctx.reply('Authorize first!').then(() => ctx.scene.enter('usernameScene'));
     }
 });
 stage.hears('Today', ctx => { 
-    if(isLogged) {
-        let date = moment(new Date).format('DD/MM/YYYY');
+    if(isLogged()) {
+        newCard.CardDate__c = moment(new Date).format('YYYY-MM-DD');
 
-        newCard.CardDate__c = date;
+        ctx.reply('Selected date: ' + ctx.message.text, removeKeyboard);
 
-        return ctx.scene.enter('createCard_AmountScene', removeKeyboard);
+        return ctx.scene.enter('createCard_AmountScene');
     } else {
         ctx.reply('Authorize first!').then(() => ctx.scene.enter('usernameScene'));
     }
 });
 stage.hears('Calendar', ctx => {
-    if(isLogged) {
+    if(isLogged()) {
         const today = new Date();
         const minDate = new Date();
         minDate.setMonth(today.getMonth() - 2);
@@ -165,6 +167,9 @@ stage.hears('Calendar', ctx => {
         ctx.reply('Choose date', calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
         calendar.setDateListener((ctx, date) => { 
             newCard.CardDate__c = date;
+
+            ctx.reply('Selected date: ' + date, removeKeyboard);
+
             return ctx.scene.enter('createCard_AmountScene');
         });
     } else {
@@ -172,7 +177,7 @@ stage.hears('Calendar', ctx => {
     }
 });
 stage.hears('Yes', ctx => {
-    if(isLogged) {
+    if(isLogged()) {
         conn.query(
             'SELECT Id FROM Monthly_Expense__c WHERE Keeper__c = \'' + 
             contact.Id + 
