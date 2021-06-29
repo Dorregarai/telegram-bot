@@ -15,6 +15,11 @@ conn.login('expensesapp@gmail.com', '12345678a', function(err, res) {
     if(err) return console.error(err);
 });
 
+const isLogged = () => {
+    if(contact.Id) { return true } 
+    else { return false }
+}
+
 const authKeyboard = Markup.keyboard([ 'Current Balance', 'Create Card' ]);
 const dateKeyboard = Markup.keyboard([ 'Today', 'Calendar', 'Cancel' ]);
 const checkKeyboard = Markup.keyboard([ 'Yes', 'Cancel' ]);
@@ -69,7 +74,11 @@ createCard_DateScene.leave();
 const createCard_AmountScene = new BaseScene('createCard_AmountScene');
 createCard_AmountScene.enter(ctx => ctx.reply('What amount of card?'));
 createCard_AmountScene.on('text', ctx => {
-    newCard.Amount__c = ctx.message.text;
+    if(Number.isInteger(ctx.message.text)) {
+        newCard.Amount__c = ctx.message.text;
+    } else {
+        ctx.reply('Input valid number!').then(() => ctx.scene.enter('createCard_AmountScene'));
+    }
 
     return ctx.scene.enter('createCard_DescScene');
 });
@@ -109,70 +118,92 @@ const stage = new Stage([
 
 stage.hears('Current Balance', ctx => {
     contact.Balance__c = 0;
-    conn.query(
-        'SELECT Balance__c FROM Monthly_Expense__c WHERE Keeper__c = \'' + contact.Id + '\'', 
-        function(err, res) {
-            if(err) return console.error(err);
+    if(isLogged) {
+        conn.query(
+            'SELECT Balance__c FROM Monthly_Expense__c WHERE Keeper__c = \'' + contact.Id + '\'', 
+            function(err, res) {
+                if(err) return console.error(err);
 
-            for(let elem of res.records) {
-              contact.Balance__c += elem.Balance__c
+                for(let elem of res.records) {
+                contact.Balance__c += elem.Balance__c
+                }
+
+                ctx.reply('Your current balance = ' + contact.Balance__c + '$');
             }
-
-            ctx.reply('Your current balance = ' + contact.Balance__c + '$');
-        }
-    );
+        );
+    } else {
+        ctx.reply('Authorize first!').then(() => ctx.scene.enter('usernameScene'));
+    }
 });
-stage.hears('Create Card', ctx => ctx.scene.enter('createCard_DateScene'));
+stage.hears('Create Card', ctx => {
+    if(isLogged) {
+        return ctx.scene.enter('createCard_DateScene')
+    } else {
+        ctx.reply('Authorize first!').then(() => ctx.scene.enter('usernameScene'));
+    }
+});
 stage.hears('Today', ctx => { 
-    let date = moment(new Date).format('DD/MM/YYYY');
+    if(isLogged) {
+        let date = moment(new Date).format('DD/MM/YYYY');
 
-    newCard.CardDate__c = date;
+        newCard.CardDate__c = date;
 
-    return ctx.scene.enter('createCard_AmountScene', removeKeyboard);
+        return ctx.scene.enter('createCard_AmountScene', removeKeyboard);
+    } else {
+        ctx.reply('Authorize first!').then(() => ctx.scene.enter('usernameScene'));
+    }
 });
 stage.hears('Calendar', ctx => {
-    const today = new Date();
-    const minDate = new Date();
-    minDate.setMonth(today.getMonth() - 2);
-    const maxDate = new Date();
-    maxDate.setMonth(today.getMonth() + 2);
-    maxDate.setDate(today.getDate());
+    if(isLogged) {
+        const today = new Date();
+        const minDate = new Date();
+        minDate.setMonth(today.getMonth() - 2);
+        const maxDate = new Date();
+        maxDate.setMonth(today.getMonth() + 2);
+        maxDate.setDate(today.getDate());
 
-	  ctx.reply('Choose date', calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
-    calendar.setDateListener((ctx, date) => { 
-        newCard.CardDate__c = date;
-        return ctx.scene.enter('createCard_AmountScene');
-    });
+        ctx.reply('Choose date', calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
+        calendar.setDateListener((ctx, date) => { 
+            newCard.CardDate__c = date;
+            return ctx.scene.enter('createCard_AmountScene');
+        });
+    } else {
+        ctx.reply('Authorize first!').then(() => ctx.scene.enter('usernameScene'));
+    }
 });
 stage.hears('Yes', ctx => {
-    conn.query(
-        'SELECT Id FROM Monthly_Expense__c WHERE Keeper__c = \'' + 
-        contact.Id + 
-        '\' AND CALENDAR_MONTH(MonthDate__c) = ' +
-        (+moment(newCard.CardDate__c).month() + 1) + 
-        ' AND CALENDAR_YEAR(MonthDate__c) = ' +
-        (+moment(newCard.CardDate__c).year()) + 
-        ' LIMIT 1',
-        function(err, res) {
-            if(err) return console.error(err);
+    if(isLogged) {
+        conn.query(
+            'SELECT Id FROM Monthly_Expense__c WHERE Keeper__c = \'' + 
+            contact.Id + 
+            '\' AND CALENDAR_MONTH(MonthDate__c) = ' +
+            (+moment(newCard.CardDate__c).month() + 1) + 
+            ' AND CALENDAR_YEAR(MonthDate__c) = ' +
+            (+moment(newCard.CardDate__c).year()) + 
+            ' LIMIT 1',
+            function(err, res) {
+                if(err) return console.error(err);
 
-            for(let elem of res.records) {
-              monExp.Id = elem.Id
-            }
-
-            newCard.CardKeeper__c = contact.Id;
-            newCard.MonthlyExpense__c = monExp.Id;
-        }
-    ).then(() => {
-        conn.sobject('Expense_Card__c').create(newCard, function(err, ret) {
-                if (err || !ret.success) { return console.error(err, ret); }
-                console.log("Created record id : " + ret.id);
-                if(ret.id) {
-                    ctx.reply('Card created!', removeKeyboard);
-                    return ctx.scene.enter('authScene');
+                for(let elem of res.records) {
+                monExp.Id = elem.Id
                 }
-            });
-    })
+
+                newCard.CardKeeper__c = contact.Id;
+                newCard.MonthlyExpense__c = monExp.Id;
+            }
+        ).then(() => {
+            conn.sobject('Expense_Card__c').create(newCard, function(err, ret) {
+                    if (err || !ret.success) { return console.error(err, ret); }
+                    console.log("Created record id : " + ret.id);
+                    if(ret.id) {
+                        ctx.reply('Card created!', removeKeyboard);
+                        return ctx.scene.enter('authScene');
+                    }
+                });
+        })
+    } else {
+        ctx.reply('Authorize first!').then(() => ctx.scene.enter('usernameScene'));
+    }
 });
 stage.hears('Cancel', ctx => {
     newCard = {};
