@@ -1,6 +1,6 @@
 const { Telegraf, session, Scenes: { BaseScene, Stage }, Markup  } = require('telegraf');
 const Calendar = require('telegraf-calendar-telegram');
-const bot = new Telegraf('1879933872:AAFq_UDOoFlQo7JwfwLyFPpPRoUMhsFc7J4');
+const bot = new Telegraf(process.env.TG_APIKEY);
 const calendar = new Calendar(bot);
 const jsforce = require('jsforce');
 const conn = new jsforce.Connection();
